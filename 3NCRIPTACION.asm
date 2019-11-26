@@ -300,12 +300,13 @@ ConcatProcedure PROC
     
     hacer2:
         mov al, llave[bx]
-        mov frase[si], al
+        mov fragmento[si], al
         inc si
         inc bx
+    	MPRINTTEXT fragmento
     
     loop hacer2
-    MPRINTTEXT frase
+
     ret
     
     
