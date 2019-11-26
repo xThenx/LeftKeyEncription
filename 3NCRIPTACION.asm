@@ -1,4 +1,4 @@
-include 'emu8086.inc'
+                                                                                                   include 'emu8086.inc'
 
 org 100h
 
@@ -223,6 +223,7 @@ ReadFile:
 
 WriteTheEncryption: 
     call EncryptProcedure  ;este deberia ser procedure2 porque el 1 es el que se tiene que sumar la llave
+    call ConcatProcedure
     call EncryptProcedure3
     xor si,si 
     mov ah, 40h 
@@ -260,6 +261,9 @@ jmp MAINMENU
 ;////////////////////END OF ENCRIPT METHOD////////////////////////
 ;/////////////////////////////////////////////////////////////////
 
+
+
+
 EncryptProcedure PROC 
     ;Make the count  
     ;Sumando 2 a su codigo ASCI 
@@ -288,6 +292,27 @@ EncryptProcedure PROC
 EncryptProcedure ENDP
 
 
+ConcatProcedure PROC
+    
+    mov cx, contadorllave
+    mov bx, 0 
+    mov si, num_caracteres
+    
+    hacer2:
+        mov al, llave[bx]
+        mov frase[si], al
+        inc si
+        inc bx
+    
+    loop hacer2
+    MPRINTTEXT frase
+    ret
+    
+    
+    
+ConcatProcedure ENDP
+
+
 EncryptProcedure3 PROC     
     
     mov dx, 0 
@@ -305,7 +330,7 @@ EncryptProcedure3 PROC
     mov si, 2
     mov bx, 0
     
-    hacer2:
+    hacer3:
         mov al, fragmento[bx]
         mov copiaFragmento[si], al 
         inc si
@@ -313,7 +338,7 @@ EncryptProcedure3 PROC
         inc dx
     
     
-    loop hacer2
+    loop hacer3
     
     ret
       
@@ -385,7 +410,7 @@ ErrorN1 db 10,13,'Esa opcion no es posible :( $'
 
 ;variable para guardado de texto
 llave db 20 dup('$')
-contadorllave db 0 
+contadorllave dw 0 
 
 frase db 20 dup('$')
 bytes db 0
