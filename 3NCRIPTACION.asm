@@ -33,7 +33,8 @@ MREADINGTEXT MACRO TextToFill
         sub al, 32
         mov TextToFill[si], al
         inc si
-        jmp ReadCharacter
+        jmp ReadCharacter  
+        
     BackDelete:
         dec si
         mov TextToFill[si], '$'
@@ -55,18 +56,25 @@ ENDM
 StartProgram:
  
 CALL PPRINTHEADER       
+
 MAINMENU: 
   
 mov ah, 1                              ;0=48 / 1=49 / 2=50 Encriptar cadena de texto / 3=51 /   
 int 21h 
+
 ;LEYENDO TECLADO
+
 ;cmp al, 48
 ;jz encriptar archivo
+
 ;cmp al, 49
 ;jz desencriptar un archivo 
+
+;Opcion 1 "desencriptar" un archivo 
 cmp al, 49
 jz VOID_ENCRIPTAR
 
+;Opcion 2 Encriptar cadena de texto
 cmp al, 50 
 jz VOID_ENCRIPTAR
  
@@ -153,7 +161,7 @@ VOID_ENCRIPTAR:
     MOV contadorllave,0
     MOV llave, 0
     MPRINTTEXT salto
-    MPRINTTEXT msgllave
+    MPRINTTEXT msgllave ;Escriba una palabra que se utilizara como llave para encriptar su texto
     MPRINTTEXT salto
     
     ReadCharacter:
@@ -182,12 +190,14 @@ VOID_ENCRIPTAR:
         jmp ReadCharacter  
     
     FinishReader:
+    
+    
         
 ;---END TO READ, NOW LETS OPEN THE FILE TO ENCRIPT
     
 crear: 
-    mov ah, 3Ch 
-    mov cx, 0 
+    mov ah, 3Ch ;create or truncate file 
+    mov cx, 0 ;;  normal - no attributes
     mov dx, offset fileout 
     int 21h 
     jc error3 
@@ -212,15 +222,16 @@ ReadFile:
     jz CloseFile              
 
 WriteTheEncryption: 
-    call EncryptProcedure 
-    
+    call EncryptProcedure  ;este deberia ser procedure2 porque el 1 es el que se tiene que sumar la llave
+    call EncryptProcedure3
+    xor si,si 
     mov ah, 40h 
     mov bx, handler2 
-    mov cx, 10  ; Number of bytes
-    mov dx, offset fragmento 
+    mov cx, num_caracteres  ; Number of bytes
+    mov dx, offset CopiaFragmento 
     int 21h 
     jc error4 
-    jmp MAINMENU
+   
     
 Clean: 
     ;;limpiar varible 
@@ -238,6 +249,8 @@ CloseFile:
      
     mov bx, handler2 
     int 21h
+
+
          
 
 ;---WELL, NOW GO TO MAINMENU AGAIN
@@ -248,18 +261,16 @@ jmp MAINMENU
 ;/////////////////////////////////////////////////////////////////
 
 EncryptProcedure PROC 
-    ;Make the count
-    
-     
+    ;Make the count  
     ;Sumando 2 a su codigo ASCI 
     xor si,si  
-    mov cx,10 
-    mov dx, offset fragmento 
+    mov cx,10 ;cx 10 debido al limite de 10 caracteres 
+    mov dx, offset fragmento  
     hacer: 
         mov al, fragmento[si] 
-        cmp al,000        
-        jnle siguiente 
-        cmp al,255 
+        cmp al,0        
+        je terminar1 
+        cmp al,255   
         jnge siguiente 
        
         siguiente: 
@@ -268,10 +279,48 @@ EncryptProcedure PROC
             mov fragmento[si],al
              
             inc si 
-    loop hacer 
+    loop hacer
+    terminar1:
+        mov num_caracteres, si  
+    ;Limite de caracteres 
     ret
           
-EncryptProcedure ENDP  
+EncryptProcedure ENDP
+
+
+EncryptProcedure3 PROC     
+    
+    mov dx, 0 
+    mov cx, num_caracteres
+    mov si, cx
+    dec si
+    mov al, fragmento[si]
+    mov copiaFragmento[1], al    
+    inc dx
+    dec si
+    mov al, fragmento[si]
+    mov copiaFragmento[0], al
+    inc dx
+    mov cx, si 
+    mov si, 2
+    mov bx, 0
+    
+    hacer2:
+        mov al, fragmento[bx]
+        mov copiaFragmento[si], al 
+        inc si
+        inc bx
+        inc dx
+    
+    
+    loop hacer2
+    
+    ret
+      
+        
+    
+EncryptProcedure3 ENDP
+
 
 ;/////////////////////////////////////////////////////////////////                                                                  
 ;/////////////////////ERROR///////////////////////////////////////    
@@ -291,12 +340,14 @@ error3:
 error4: 
     MPRINTTEXT msgError4 
     jmp fin 
+
 fin: 
 
 error5:
     MPRINTTEXT ErrorN1
-    CALL PPRINTHEADER
-    jmp MAINMENU
+    ;CALL PPRINTHEADER
+    ;jmp MAINMENU 
+    jmp EndProgram
 
 ret                                                                      
 ;/////////////////////////////////////////////////////////////////                                                                  
@@ -334,7 +385,8 @@ ErrorN1 db 10,13,'Esa opcion no es posible :( $'
 
 ;variable para guardado de texto
 llave db 20 dup('$')
-contadorllave db 0
+contadorllave db 0 
+
 frase db 20 dup('$')
 bytes db 0
 
@@ -344,3 +396,6 @@ filein db 'C:\prueba\ToEncript.txt',0
 fileout db 'C:\prueba\EncriptedFile.txt',0 
 fragmento db '$$$$$$$$$$$$$$$$$$$$$$$',0 
 limpio db '                     ',0 
+
+num_caracteres dw 0 
+copiaFragmento db '',0 
