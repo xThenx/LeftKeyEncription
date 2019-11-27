@@ -64,22 +64,18 @@ int 21h
 
 ;LEYENDO TECLADO
 
-;cmp al, 48
-;jz encriptar archivo
+cmp al, 48
+jz VOID_ENCRIPTAR
 
 cmp al, 49
-jz VOID_ENCRIPTAR
-
-;Opcion 1 "desencriptar" un archivo 
-cmp al, 50
-jz VOID_ENCRIPTAR
+jz VOID_DESENCRIPTAR
 
 ;Opcion 2 Encriptar cadena de texto
 ;cmp al, 50 
 ;jz VOID_ENCRIPTAR
  
 
-jmp error5
+;jmp error5
 ;cmp al, 51
 ;jz salir del programa
 
@@ -363,16 +359,18 @@ jmp MAINMENU
 DecryptProcedure PROC 
     ;Make the count  
     ;Sumando 2 a su codigo ASCI 
-    mov dx, offset fragmento
     mov si, 0
     mov cx, num_caracteres  
-    hacer5:  
+    hacer5:
+       mov al,copiaFragmento[si]  
        dec al
        dec al
-       mov fragmento[si],al   
+       mov copiaFragmento[si],al   
        inc si 
     loop hacer5
-    
+    ;MPRINTTEXT copiaFragmento
+    mov ah, 1
+    int 21h 
        
     ret
           
@@ -383,6 +381,8 @@ DecryptProcedure ENDP
 
 DeConcatProcedure PROC
     
+    mov ah, 1
+    int 21h 
     mov cx, contadorllave
     mov bx, 0 
     mov si, num_caracteres
@@ -390,18 +390,22 @@ DeConcatProcedure PROC
     
     hacer2:
         mov al, llave[bx]
-        cmp al, fragmento[si]
-        jne llaveIncorrecta
+        cmp al, copiaFragmento[si]
+        ;jne llaveIncorrecta
         
-        mov fragmento[si], 0       
+        mov copiaFragmento[si], 0       
+        mov bl, copiaFragmento[si]
         ;push fragmento[si], al
-        
         dec num_caracteres
         dec si
         inc bx
     
     loop hacer2
-
+    ;MPRINTTEXT copiaFragmento
+    mov ah, 1
+    int 21h 
+    
+    
     ret
     
 DeConcatProcedure ENDP
@@ -418,10 +422,12 @@ DecryptProcedure3 PROC
     
     contador5: 
         mov al, fragmento[si] 
-        cmp al,0
+        cmp al,0 
+        je salidacontador
         inc si  
     loop contador5
-    
+   
+  salidacontador: 
     mov num_caracteres, si
     mov cx, num_caracteres
     mov si, cx
@@ -431,6 +437,7 @@ DecryptProcedure3 PROC
     dec si
     mov al, fragmento[0]
     mov copiaFragmento[si], al
+    
     mov cx, si 
     mov si, 0
     mov bx, 2
@@ -445,8 +452,9 @@ DecryptProcedure3 PROC
         inc dx 
     
     loop hacer3
+    mov ah, 1
+    int 21h 
     ;MPRINTTEXT copiaFragmento
-    ;MPRINTTEXT salto
     ret
       
         
