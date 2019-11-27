@@ -67,16 +67,16 @@ int 21h
 ;cmp al, 48
 ;jz encriptar archivo
 
-;cmp al, 49
-;jz desencriptar un archivo 
-
-;Opcion 1 "desencriptar" un archivo 
 cmp al, 49
 jz VOID_ENCRIPTAR
 
-;Opcion 2 Encriptar cadena de texto
-cmp al, 50 
+;Opcion 1 "desencriptar" un archivo 
+cmp al, 50
 jz VOID_ENCRIPTAR
+
+;Opcion 2 Encriptar cadena de texto
+;cmp al, 50 
+;jz VOID_ENCRIPTAR
  
 
 jmp error5
@@ -229,6 +229,7 @@ WriteTheEncryption:
     mov ah, 40h 
     mov bx, handler2 
     mov cx, num_caracteres  ; Number of bytes
+    ;MPRINTTEXT copiaFragmento
     mov dx, offset CopiaFragmento 
     int 21h 
     jc error4 
@@ -252,6 +253,103 @@ CloseFile:
     int 21h
 
 
+
+
+VOID_DESENCRIPTAR:
+    MOV contadorllave,0
+    MOV llave, 0
+    MPRINTTEXT salto
+    MPRINTTEXT msgllave ;Hay que cambiar esto para desencriptar
+    MPRINTTEXT salto
+    
+    ReadCharacter2:
+        ;Preparamos el poder de la lectura
+        mov ah, 1
+        int 21h
+        
+        ;Sera un Enter?
+        cmp al, 13
+        jz FinishReader2
+        
+        ;Quiere borrar Texto?
+        ;cmp al, 8
+        cmp al, 8
+        jz BackDelete2
+        
+        ;Continuar normal
+        sub al, 32
+        mov llave[si], al
+        inc si
+        inc contadorllave ; Tambien le sumamos al contador
+        jmp ReadCharacter2
+    BackDelete2:
+        dec si
+        mov llave[si], '$'
+        jmp ReadCharacter2  
+    
+    FinishReader2:
+    
+
+    crear2: 
+        mov ah, 3Ch ;create or truncate file 
+        mov cx, 0 ;;  normal - no attributes
+        mov dx, offset fileout 
+        int 21h             
+        jc error3 
+        mov handler2, ax     
+    
+OpenFile2: 
+    mov ah, 3dh 
+    mov al, 2 
+    mov dx, offset filein 
+    int 21h 
+    ;jc error1 
+    mov handler, ax  
+      
+ReadFile2: 
+    mov bx, handler 
+    mov ah, 3fh 
+    mov cx, 10 
+    mov dx, offset fragmento 
+    int 21h   
+    ;jc error2          
+    cmp ax, 0 ;? EOF 
+    jz CloseFile              
+
+WriteTheEncryption2: 
+    call DecryptProcedure3
+    call DeConcatProcedure
+    call DecryptProcedure 
+    
+    
+    xor si,si 
+    mov ah, 40h 
+    mov bx, handler2 
+    mov cx, num_caracteres  ; Number of bytes
+    ;MPRINTTEXT copiaFragmento
+    mov dx, offset CopiaFragmento 
+    int 21h 
+    jc error4 
+   
+    
+Clean2: 
+    ;;limpiar varible 
+    mov si, offset limpio 
+    mov di, offset fragmento 
+    mov cx, 10 
+    rep movsb     
+         
+    
+CloseFile2: 
+    ;cerrar archivo 
+    mov ah, 3eh 
+    mov bx, handler 
+    int 21h 
+     
+    mov bx, handler2 
+    int 21h
+
+    
          
 
 ;---WELL, NOW GO TO MAINMENU AGAIN
@@ -261,6 +359,99 @@ jmp MAINMENU
 ;////////////////////END OF ENCRIPT METHOD////////////////////////
 ;/////////////////////////////////////////////////////////////////
 
+
+DecryptProcedure PROC 
+    ;Make the count  
+    ;Sumando 2 a su codigo ASCI 
+    mov dx, offset fragmento
+    mov si, 0
+    mov cx, num_caracteres  
+    hacer5:  
+       dec al
+       dec al
+       mov fragmento[si],al   
+       inc si 
+    loop hacer5
+    
+       
+    ret
+          
+DecryptProcedure ENDP
+
+
+
+
+DeConcatProcedure PROC
+    
+    mov cx, contadorllave
+    mov bx, 0 
+    mov si, num_caracteres
+    dec si
+    
+    hacer2:
+        mov al, llave[bx]
+        cmp al, fragmento[si]
+        jne llaveIncorrecta
+        
+        mov fragmento[si], 0       
+        ;push fragmento[si], al
+        
+        dec num_caracteres
+        dec si
+        inc bx
+    
+    loop hacer2
+
+    ret
+    
+DeConcatProcedure ENDP
+
+
+
+DecryptProcedure3 PROC     
+    
+    
+    
+    mov cx, 10 
+    mov al, 10
+    mov si, 0 
+    
+    contador5: 
+        mov al, fragmento[si] 
+        cmp al,0
+        inc si  
+    loop contador5
+    
+    mov num_caracteres, si
+    mov cx, num_caracteres
+    mov si, cx
+    dec si
+    mov al, fragmento[1]     
+    mov copiaFragmento[si], al    
+    dec si
+    mov al, fragmento[0]
+    mov copiaFragmento[si], al
+    mov cx, si 
+    mov si, 0
+    mov bx, 2
+    
+    hacer3:
+        mov al, fragmento[bx] 
+        mov copiaFragmento[si], al 
+        ;MPRINTTEXT copiaFragmento
+        ;MPRINTTEXT salto
+        inc si
+        inc bx
+        inc dx 
+    
+    loop hacer3
+    ;MPRINTTEXT copiaFragmento
+    ;MPRINTTEXT salto
+    ret
+      
+        
+    
+DecryptProcedure3 ENDP
 
 
 
@@ -298,18 +489,16 @@ ConcatProcedure PROC
     mov bx, 0 
     mov si, num_caracteres
     
-    hacer2:
+    hacerResta:
         mov al, llave[bx]
         mov fragmento[si], al
+        inc num_caracteres
         inc si
         inc bx
-    	MPRINTTEXT fragmento
     
-    loop hacer2
+    loop hacerResta
 
     ret
-    
-    
     
 ConcatProcedure ENDP
 
@@ -320,33 +509,44 @@ EncryptProcedure3 PROC
     mov cx, num_caracteres
     mov si, cx
     dec si
-    mov al, fragmento[si]
-    mov copiaFragmento[1], al    
+    mov al, fragmento[si]     
+    mov copiaFragmento[1], al
+    ;MPRINTTEXT copiaFragmento
+    ;MPRINTTEXT salto    
     inc dx
     dec si
     mov al, fragmento[si]
     mov copiaFragmento[0], al
+    ;MPRINTTEXT copiaFragmento
+    ;MPRINTTEXT salto    
     inc dx
     mov cx, si 
     mov si, 2
     mov bx, 0
     
-    hacer3:
-        mov al, fragmento[bx]
+    hacerCopia:
+        mov al, fragmento[bx] 
         mov copiaFragmento[si], al 
+        ;MPRINTTEXT copiaFragmento
+        ;MPRINTTEXT salto
         inc si
         inc bx
         inc dx
     
     
-    loop hacer3
-    
+    loop hacerCopia
+    ;MPRINTTEXT copiaFragmento
+    ;MPRINTTEXT salto
     ret
       
         
     
 EncryptProcedure3 ENDP
-
+                             
+                             
+                             
+llaveincorrecta:
+    jmp error1
 
 ;/////////////////////////////////////////////////////////////////                                                                  
 ;/////////////////////ERROR///////////////////////////////////////    
