@@ -65,11 +65,17 @@ int 21h
 ;LEYENDO TECLADO
 
 cmp al, 48
+
 jz VOID_ENCRIPTAR
 
 cmp al, 49
-jz VOID_DESENCRIPTAR
+jz VOID_ENCRIPTAR
 
+
+cmp al, 51
+ret
+
+jmp StartProgram
 ;Opcion 2 Encriptar cadena de texto
 ;cmp al, 50 
 ;jz VOID_ENCRIPTAR
@@ -153,7 +159,10 @@ PPRINTHEADER ENDP
 ;/////////////////////////////////////////////////////////////////
 ;/////////////////ENCRIPT METHOD//////////////////////////////////
 ;/////////////////////////////////////////////////////////////////
-VOID_ENCRIPTAR:
+VOID_ENCRIPTAR:  
+    mov num_Opcion, al ; Guardamos Opcion
+    
+    
     MOV contadorllave,0
     MOV llave, 0
     MPRINTTEXT salto
@@ -175,18 +184,20 @@ VOID_ENCRIPTAR:
         jz BackDelete
         
         ;Continuar normal
-        sub al, 32
+        
+        
         mov llave[si], al
         inc si
         inc contadorllave ; Tambien le sumamos al contador
         jmp ReadCharacter
     BackDelete:
         dec si
+        dec contadorllave ; Restamos al contador de la llave
         mov llave[si], '$'
         jmp ReadCharacter  
     
     FinishReader:
-    
+    ;Se termino de escribir la llave, sigamos
     
         
 ;---END TO READ, NOW LETS OPEN THE FILE TO ENCRIPT
@@ -210,23 +221,53 @@ OpenFile:
 ReadFile: 
     mov bx, handler 
     mov ah, 3fh 
-    mov cx, 10 
+    mov cx, 200 
     mov dx, offset fragmento 
     int 21h   
-    ;jc error2          
+    jc error2          
     cmp ax, 0 ;? EOF 
-    jz CloseFile              
+    jz CloseFile 
+    
+    
 
-WriteTheEncryption: 
-    call EncryptProcedure  ;este deberia ser procedure2 porque el 1 es el que se tiene que sumar la llave
-    call ConcatProcedure
-    call EncryptProcedure3
+WriteTheEncryption:
+
+    cmp num_Opcion, 48
+    jz PEncryp
+    
+    cmp num_Opcion, 49
+    jz DEncryp
+    
+    PEncryp: 
+    call PEncryptation  ;
+    jmp ContinuarCryp
+    
+    DEncryp:
+    call PDencryptation  ;
+    jmp ContinuarCryp
+    
+    ContinuarCryp:
     xor si,si 
     mov ah, 40h 
     mov bx, handler2 
     mov cx, num_caracteres  ; Number of bytes
-    ;MPRINTTEXT copiaFragmento
-    mov dx, offset CopiaFragmento 
+    ;MPRINTTEXT copiaFragmento 
+    
+    cmp num_Opcion, 48
+    jz VarEncriptar
+    
+    cmp num_Opcion, 49
+    jz VarDecriptar
+    
+     VarEncriptar:
+     mov dx, offset TextToEncrypt2 ; En esta variable se queda cuando encriptamos
+     jmp ContinuarWork 
+     
+     VarDecriptar:
+     mov dx, offset TextToEncrypt3 ; En esta variable se queda cuando desencriptamos 
+     jmp ContinuarWork
+     
+    ContinuarWork: 
     int 21h 
     jc error4 
    
@@ -234,327 +275,387 @@ WriteTheEncryption:
 Clean: 
     ;;limpiar varible 
     mov si, offset limpio 
-    mov di, offset fragmento 
-    mov cx, 10 
+    mov di, offset TextToEncrypt 
+    mov cx, 100 
     rep movsb     
          
     
 CloseFile: 
     ;cerrar archivo 
+    jmp StartProgram
     mov ah, 3eh 
     mov bx, handler 
     int 21h 
      
     mov bx, handler2 
     int 21h
+    
+    jmp StartProgram
 
 
 
-
-VOID_DESENCRIPTAR:
-    MOV contadorllave,0
-    MOV llave, 0
-    MPRINTTEXT salto
-    MPRINTTEXT msgllave ;Hay que cambiar esto para desencriptar
-    MPRINTTEXT salto
-    
-    ReadCharacter2:
-        ;Preparamos el poder de la lectura
-        mov ah, 1
-        int 21h
-        
-        ;Sera un Enter?
-        cmp al, 13
-        jz FinishReader2
-        
-        ;Quiere borrar Texto?
-        ;cmp al, 8
-        cmp al, 8
-        jz BackDelete2
-        
-        ;Continuar normal
-        sub al, 32
-        mov llave[si], al
-        inc si
-        inc contadorllave ; Tambien le sumamos al contador
-        jmp ReadCharacter2
-    BackDelete2:
-        dec si
-        mov llave[si], '$'
-        jmp ReadCharacter2  
-    
-    FinishReader2:
-    
-
-    crear2: 
-        mov ah, 3Ch ;create or truncate file 
-        mov cx, 0 ;;  normal - no attributes
-        mov dx, offset fileout 
-        int 21h             
-        jc error3 
-        mov handler2, ax     
-    
-OpenFile2: 
-    mov ah, 3dh 
-    mov al, 2 
-    mov dx, offset filein 
-    int 21h 
-    ;jc error1 
-    mov handler, ax  
-      
-ReadFile2: 
-    mov bx, handler 
-    mov ah, 3fh 
-    mov cx, 10 
-    mov dx, offset fragmento 
-    int 21h   
-    ;jc error2          
-    cmp ax, 0 ;? EOF 
-    jz CloseFile              
-
-WriteTheEncryption2: 
-    call DecryptProcedure3
-    call DeConcatProcedure
-    call DecryptProcedure 
-    
-    
-    xor si,si 
-    mov ah, 40h 
-    mov bx, handler2 
-    mov cx, num_caracteres  ; Number of bytes
-    ;MPRINTTEXT copiaFragmento
-    mov dx, offset CopiaFragmento 
-    int 21h 
-    jc error4 
-   
-    
-Clean2: 
-    ;;limpiar varible 
-    mov si, offset limpio 
-    mov di, offset fragmento 
-    mov cx, 10 
-    rep movsb     
-         
-    
-CloseFile2: 
-    ;cerrar archivo 
-    mov ah, 3eh 
-    mov bx, handler 
-    int 21h 
-     
-    mov bx, handler2 
-    int 21h
-
-    
-         
-
-;---WELL, NOW GO TO MAINMENU AGAIN
-jmp MAINMENU
  
 ;/////////////////////////////////////////////////////////////////
 ;////////////////////END OF ENCRIPT METHOD////////////////////////
 ;/////////////////////////////////////////////////////////////////
+PEncryptation PROC
+
+xor si,si
 
 
-DecryptProcedure PROC 
-    ;Make the count  
-    ;Sumando 2 a su codigo ASCI 
-    mov si, 0
-    mov cx, num_caracteres  
-    hacer5:
-       mov al,copiaFragmento[si]  
-       dec al
-       dec al
-       mov copiaFragmento[si],al   
-       inc si 
-    loop hacer5
-    ;MPRINTTEXT copiaFragmento
-    mov ah, 1
-    int 21h 
-       
-    ret
-          
-DecryptProcedure ENDP
+;mov cx, contadorllave ;obtenemos el valor del contador
+;inc cx                ;le sumamos uno para la posicion si
+
+concat:
+
+cmp si, contadorllave
+je finalizarconcat1
+
+mov al, llave[si]
+
+mov TextToEncrypt[si],al
+
+inc si
+jmp concat
+
+finalizarconcat1:
+
+;xor si,si
+xor di,di
+mov di, contadorllave ;obtenemos el valor del contador
 
 
+concat2:
+;Make the count
+;Sumando 2 a su codigo ASCI
+xor si,si
+xor dx,dx
+;mov cx,10 ;cx 10 debido al limite de 10 caracteres
+
+mov dx, offset fragmento
+hacer:
+mov al, fragmento[si]    ;Guardamos caracter en al
+;cmp al,0
+;je terminar
+
+cmp al, 248
+je terminar1    ;Ya no hay nada que leer
+
+incrementar:       ;Sumemos y sigamos en el loop
+mov TextToEncrypt[di],al
+inc di
+inc si
+jmp hacer
+; CONCATENACION REALIZADA
 
 
-DeConcatProcedure PROC
-    
-    mov ah, 1
-    int 21h 
-    mov cx, contadorllave
-    mov bx, 0 
-    mov si, num_caracteres
-    dec si
-    
-    hacer2:
-        mov al, llave[bx]
-        cmp al, copiaFragmento[si]
-        ;jne llaveIncorrecta
-        
-        mov copiaFragmento[si], 0       
-        mov bl, copiaFragmento[si]
-        ;push fragmento[si], al
-        dec num_caracteres
-        dec si
-        inc bx
-    
-    loop hacer2
-    ;MPRINTTEXT copiaFragmento
-    mov ah, 1
-    int 21h 
-    
-    
-    ret
-    
-DeConcatProcedure ENDP
+;loop hacer       ;No necesario a la linea je terminar1
+terminar1:
+add si, contadorllave
+mov num_caracteres, si
+
+;Limite de caracteres
+
+;Ahora toca mover a la derecha uno
+
+xor si,si
+xor di,di
+;mov dx, offset TextToEncrypt
+
+PERMUTACION:
+mov al, TextToEncrypt[si] ;El primero
+
+inc si
+inc di
+
+cmp si,num_caracteres
+je MoverAlPrimero 
+
+MoverUnaPosicion:
+mov TextToEncrypt2[di], al
+jmp IncrementarPunteros
+
+IncrementarPunteros:
 
 
+jmp PERMUTACION
 
-DecryptProcedure3 PROC     
-    
-    
-    
-    mov cx, 10 
-    mov al, 10
-    mov si, 0 
-    
-    contador5: 
-        mov al, fragmento[si] 
-        cmp al,0 
-        je salidacontador
-        inc si  
-    loop contador5
-   
-  salidacontador: 
-    mov num_caracteres, si
-    mov cx, num_caracteres
-    mov si, cx
-    dec si
-    mov al, fragmento[1]     
-    mov copiaFragmento[si], al    
-    dec si
-    mov al, fragmento[0]
-    mov copiaFragmento[si], al
-    
-    mov cx, si 
-    mov si, 0
-    mov bx, 2
-    
-    hacer3:
-        mov al, fragmento[bx] 
-        mov copiaFragmento[si], al 
-        ;MPRINTTEXT copiaFragmento
-        ;MPRINTTEXT salto
-        inc si
-        inc bx
-        inc dx 
-    
-    loop hacer3
-    mov ah, 1
-    int 21h 
-    ;MPRINTTEXT copiaFragmento
-    ret
+MoverAlPrimero:
+xor di,di
       
+mov TextToEncrypt2[di], al
+jmp FinPermutacion
+
+FinPermutacion:    
+
+
+SUMASCI:
+xor si,si
+
+mov dx, offset TextToEncrypt2
+ 
+    evaluarsumasci: 
+        mov al, TextToEncrypt2[si]    ;Guardamos caracter en al
+        ;cmp al,0        
+        ;je terminar1
         
-    
-DecryptProcedure3 ENDP
-
-
-
-EncryptProcedure PROC 
-    ;Make the count  
-    ;Sumando 2 a su codigo ASCI 
-    xor si,si  
-    mov cx,10 ;cx 10 debido al limite de 10 caracteres 
-    mov dx, offset fragmento  
-    hacer: 
-        mov al, fragmento[si] 
-        cmp al,0        
-        je terminar1 
-        cmp al,255   
-        jnge siguiente 
-       
-        siguiente: 
-            inc al
-            inc al
-            mov fragmento[si],al
+        cmp al, 248
+        je endStepSumAsci    ;Ya no hay nada que leer
+        
+        ;cmp al,255               ;Comparamos el valor ASCI
+        ;jnge siguiente           ;JNGE verifica si el valor es menor 
+        
+        cmp al, 255
+        je endsumasci
+        
+        cmp al, 254
+        je endsumasci
+        
+        sumaasci: 
+            inc al       ;Sumamos una posicion al ASCI
+            inc al       ;Sumamos una posicion al ASCI
+            
              
+        endsumasci:       ;Sumemos y sigamos en el loop
+            mov TextToEncrypt2[si],al
             inc si 
-    loop hacer
-    terminar1:
-        mov num_caracteres, si  
-    ;Limite de caracteres 
-    ret
-          
-EncryptProcedure ENDP
-
-
-ConcatProcedure PROC
-    
-    mov cx, contadorllave
-    mov bx, 0 
-    mov si, num_caracteres
-    
-    hacerResta:
-        mov al, llave[bx]
-        mov fragmento[si], al
-        inc num_caracteres
-        inc si
-        inc bx
-    
-    loop hacerResta
-
-    ret
-    
-ConcatProcedure ENDP
-
-
-EncryptProcedure3 PROC     
-    
-    mov dx, 0 
-    mov cx, num_caracteres
-    mov si, cx
-    dec si
-    mov al, fragmento[si]     
-    mov copiaFragmento[1], al
-    ;MPRINTTEXT copiaFragmento
-    ;MPRINTTEXT salto    
-    inc dx
-    dec si
-    mov al, fragmento[si]
-    mov copiaFragmento[0], al
-    ;MPRINTTEXT copiaFragmento
-    ;MPRINTTEXT salto    
-    inc dx
-    mov cx, si 
-    mov si, 2
-    mov bx, 0
-    
-    hacerCopia:
-        mov al, fragmento[bx] 
-        mov copiaFragmento[si], al 
-        ;MPRINTTEXT copiaFragmento
-        ;MPRINTTEXT salto
-        inc si
-        inc bx
-        inc dx
-    
-    
-    loop hacerCopia
-    ;MPRINTTEXT copiaFragmento
-    ;MPRINTTEXT salto
-    ret
-      
+        jmp evaluarsumasci
         
+        
+        
+    ;loop hacer       ;No necesario a la linea je terminar1
+    endStepSumAsci:
+
+
+ret
+
+ENDP
+
+;================================================================   
+;================================================================   
+;================================================================   
+
+
+PDencryptation PROC 
+     
     
-EncryptProcedure3 ENDP
+;================================================================    
+
+RESTAASCI:
+xor si,si
+
+mov dx, offset fragmento
+ 
+    Devaluarsumasci: 
+        mov al, fragmento[si]    ;Guardamos caracter en al
+        ;cmp al,0        
+        ;je terminar1
+        
+        cmp al, 248
+        je ENDRESTAASCI    ;Ya no hay nada que leer
+        
+        ;cmp al,255               ;Comparamos el valor ASCI
+        ;jnge siguiente           ;JNGE verifica si el valor es menor 
+        
+        cmp al, 255
+        je Dendsumasci
+        
+        cmp al, 254
+        je Dendsumasci
+        
+        Dsumaasci: 
+            dec al       ;Sumamos una posicion al ASCI
+            dec al       ;Sumamos una posicion al ASCI
+            
+             
+        Dendsumasci:       ;Sumemos y sigamos en el loop
+            mov fragmento[si],al
+            inc si
+            inc num_caracteres 
+        jmp Devaluarsumasci
+        ;AGREGAR CONTADOR PARA NUM_CARACTERES
+        
+        
+    ;loop hacer       ;No necesario a la linea je terminar1
+    ENDRESTAASCI:
+
+
+ ;================================================================
+
+    ;===============STEP 2===========================================
+
+;================================================================
+;Ahora toca mover a la derecha uno
+
+
+;mov dx, offset TextToEncrypt
+xor si,si
+xor di,di
+
+
+DPERMUTACION:
+
+
+
+mov al, fragmento[si] 
+
+cmp si,0
+je DMoverAlFinal 
+
+cmp si,num_caracteres
+je DFinPermutacion 
+ 
+ 
+DMoverUnaPosicion:
+mov TextToEncrypt[di], al
+DIncrementarPunteros:
+
+inc di
+inc si
+
+jmp DPERMUTACION
+ 
+ 
+ 
+DMoverAlFinal:
+mov di, num_caracteres
+dec di     
+mov TextToEncrypt[di], al
+xor di, di
+;inc di
+inc si
+jmp DPERMUTACION
+
+DFinPermutacion:    
+
+ 
+
+xor si,si
+ ; ========================================= VALIDAR KEY
+mov cx, contadorllave
+Validarkey:
+mov al, TextToEncrypt[si]
+
+cmp cx, 0
+je  FinalizarValidarkey
+
+cmp llave[si], al
+je nextK
+jmp IncorrectKey
+
+nextK:
+inc si  
+dec cx
+jmp Validarkey
+
+IncorrectKey: 
+    mov si, offset limpio 
+    mov di, offset TextToEncrypt 
+    mov cx, 200 
+    rep movsb
+FinalizarValidarkey:
+                  
+xor si, si          
+xor di, di
+mov di, contadorllave 
+
+mov ax, num_caracteres
+mov num_caracteresDes, ax
+xor ax,ax
+mov ax, contadorllave
+sub num_caracteresDes, ax
+sub num_caracteres, ax ;Esto queda sucio pero, ya no hare mas lineas arriba comprobando la opcion del usuario. 
+;Como entregaremos menos caracteres, tenemos que setear nuestra variable restando los de la llave
+
+
+; ==================DETENIENDO 
+
+LimpiarEntrega:                  
+        
+ 
+          
+mov al, TextToEncrypt[di]
+
+cmp si,num_caracteresDes
+je FinLimpiarEntrega
+
+mov TextToEncrypt3[si],al
+inc di
+inc si
+jmp LimpiarEntrega
+                     
+FinLimpiarEntrega:
+                     
+Dfinalizarconcat1:
+xor si,si
+;mov cx, contadorllave ;obtenemos el valor del contador
+;inc cx                ;le sumamos uno para la posicion si
+
+;Dconcat:
+
+;cmp si, contadorllave
+;je Dfinalizarconcat1
+
+;mov al, 032
+
+;mov TextToEncrypt[si],al
+
+;inc si
+;jmp Dconcat
+
+
+;xor si,si
+ 
+;;xor di,di
+;;mov di, contadorllave ;obtenemos el valor del contador
+
+
+;;Dconcat2:
+;Make the count
+;Sumando 2 a su codigo ASCI
+;;xor si,si
+;;xor dx,dx
+;mov cx,10 ;cx 10 debido al limite de 10 caracteres
+
+;;mov dx, offset fragmento
+;;Dhacer:
+;;mov al, fragmento[si]    ;Guardamos caracter en al
+;cmp al,0
+;je terminar
+
+;;cmp al, 248
+;;je Dterminar1    ;Ya no hay nada que leer
+
+;;Dincrementar:       ;Sumemos y sigamos en el loop
+;;mov TextToEncrypt[di],al
+;;inc di
+;;inc si
+;;jmp Dhacer
+; CONCATENACION REALIZADA
+
+
+;loop hacer       ;No necesario a la linea je terminar1
+;;Dterminar1:
+;;add si, contadorllave
+;;mov num_caracteres, si
+
+;Limite de caracteres
+
+
+
+
+
+
+ret
+
+ENDP
+
+
+
+                   
                              
-                             
-                             
-llaveincorrecta:
-    jmp error1
+;llaveincorrecta:
+;   jmp error1
 
 ;/////////////////////////////////////////////////////////////////                                                                  
 ;/////////////////////ERROR///////////////////////////////////////    
@@ -618,7 +719,8 @@ msgllave db 10,13,'Escriba una palabra que se utilizara como llave para encripta
 ErrorN1 db 10,13,'Esa opcion no es posible :( $'
 
 ;variable para guardado de texto
-llave db 20 dup('$')
+;llave db 20 dup('$')
+llave db 20 dup(248)
 contadorllave dw 0 
 
 frase db 20 dup('$')
@@ -626,10 +728,19 @@ bytes db 0
 
 handler dw ?  
 handler2 dw ?
-filein db 'C:\prueba\ToEncript.txt',0
-fileout db 'C:\prueba\EncriptedFile.txt',0 
-fragmento db '$$$$$$$$$$$$$$$$$$$$$$$',0 
-limpio db '                     ',0 
+filein db 'C:\Leftkey\EntradaFile.txt',0
+fileout db 'C:\Leftkey\SalidaFile.txt',0 
+fragmento db 248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,0
+limpio db '                                                                                                                 ',0 
+
+invalidkey db 'Contrasenia Invalida',0
 
 num_caracteres dw 0 
 copiaFragmento db '',0 
+
+TextToEncrypt db 248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,0
+TextToEncrypt2 db 248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,0
+TextToEncrypt3 db 248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,248,0
+
+num_Opcion db 0
+num_caracteresDes dw 0 
